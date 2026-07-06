@@ -1,0 +1,14 @@
+{
+  "name": "harness-idp-external-system-test",
+  "version": "1.0.0",
+  "description": "Mock external system to test Harness IDP External Proxy user token forwarding",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0"
+  }
+}
