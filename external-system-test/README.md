@@ -1,86 +1,50 @@
-# Mock External System (Node.js)
+# IDP External Proxy — Mock External System
 
-A minimal customer-side system that verifies the `X-Harness-IDP-User-Token` JWT injected by the Harness IDP external proxy.
+A tiny Node.js server that stands in for a customer's external system behind the Harness IDP
+external proxy. It verifies the `X-Harness-IDP-User-Token` JWT that the proxy injects, using
+ng-manager's public JWKS endpoint.
 
-## Install & Run
+## Install
 
 ```bash
 cd idp-service/external-system-test
 npm install
+```
 
+## Run
+
+```bash
 HARNESS_ACCOUNT_ID=<your-account-id> \
 HARNESS_BASE_URL=http://localhost:7457 \
+EXPECTED_AUDIENCE=harness-idp \
 npm start
 ```
 
-## Environment Variables
+## Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `5000` | Port to listen on |
-| `HARNESS_ACCOUNT_ID` | `YOUR_ACCOUNT_ID` | Your Harness account ID (used in JWKS URL) |
-| `HARNESS_BASE_URL` | `http://localhost:7457` | ng-manager base URL that serves JWKS |
-| `EXPECTED_AUDIENCE` | `harness-idp` | Expected `aud` claim |
-| `EXPECTED_ISSUER` | *(empty)* | Expected `iss` claim; leave empty to skip validation |
-| `ALLOWED_USERS` | *(empty)* | Comma-separated emails allowed to deploy (empty = allow all) |
+| `PORT` | `5000` | Port the mock server listens on |
+| `HARNESS_ACCOUNT_ID` | `YOUR_ACCOUNT_ID` | Account whose JWKS keys are used to verify tokens |
+| `HARNESS_BASE_URL` | `http://localhost:7457` | Base URL of ng-manager (direct, no `/ng/api`) |
+| `EXPECTED_AUDIENCE` | `harness-idp` | Required `aud` claim (matches the proxy's minted token) |
+| `EXPECTED_ISSUER` | *(empty)* | Optional `iss` claim to enforce (from `oidc_config.json`) |
 
 ## Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| ALL | `/api/deployment` | Protected — verifies the user token, returns decoded claims |
-| GET | `/health` | Health check |
-| ALL | `/debug/headers` | Shows all received headers + decoded token (no verification) |
-| GET | `/debug/jwks` | Fetches and displays the JWKS from ng-manager |
+- `GET /health` — returns the resolved JWKS URI.
+- `ALL *` — verifies the injected user token and echoes the decoded claims.
 
-## How to Test End-to-End
+## How it verifies
 
-1. Point an IDP proxy plugin endpoint's `target` at this server (see note below) with `oidcUserTokenEnabled: true`.
-2. Call the IDP proxy from an authenticated session.
-3. Watch this server's console — you'll see the token received, verified, and the decoded claims:
+1. Reads the `x-harness-idp-user-token` header.
+2. Fetches the RS256 public key from `${HARNESS_BASE_URL}/oidc/account/${HARNESS_ACCOUNT_ID}/.wellknown/jwks`.
+3. Validates signature, `aud`, and (optionally) `iss`.
+4. Returns the decoded `sub` (user id) and full claims on success, or `401` on failure.
 
-```
-[INFO] Received token: eyJhbGciOiJSUzI1NiIsInR5cCI6...
-[SUCCESS] Token verified. Claims:
-{
-  "sub": "user-uuid-12345",
-  "account_id": "kmpySmUISimoRrJL6NL73w",
-  "aud": "harness-idp",
-  "iss": "https://.../oidc/account/kmpySmUISimoRrJL6NL73w",
-  "upn": "user@example.com",
-  "iat": 1720256400,
-  "exp": 1720256460
-}
-```
+## Testing the full flow
 
-## IMPORTANT: Where the proxy endpoint is configured
-
-The external proxy endpoints are **NOT** configured in `idp-service/config/config.yml`.
-
-They are read from **enabled IDP plugin configs stored in the IDP database**
-(`AppConfigRepository.findAllByAccountIdentifierAndConfigTypeAndEnabled(accountId, ConfigType.PLUGIN, true)`),
-parsing the plugin's stored YAML under the `proxy.endpoints` key. See
-`ExternalProxyServiceImpl.getAllProxyEndpointConfigs` and `parseProxyConfigsFromYaml`.
-
-So to register a test endpoint you must add/enable a plugin whose YAML config
-contains something like:
-
-```yaml
-proxy:
-  endpoints:
-    test-external-api:
-      target: http://<this-server-host>:5000/api/deployment
-      allowedMethods:
-        - GET
-        - POST
-      oidcUserTokenEnabled: true
-```
-
-For the external system to be reachable from your dev environment, expose this
-server publicly (e.g. via ngrok) and set the `target` to that public URL.
-
-## Notes on `iss` (issuer)
-
-The token's `iss` claim is defined by ng-manager's `oidc_config.json`
-(`CUSTOM.payload.iss`), NOT hardcoded to `harness-idp`. If you want to validate
-`iss`, set `EXPECTED_ISSUER` to match that config value; otherwise leave it empty.
+1. Run ng-manager (`make run t=120-ng-manager`) and idp-service (`make run t=idp-service`).
+2. Configure a proxy endpoint with `oidcUserTokenEnabled: true` and `target` pointing at this server
+   (e.g. `http://localhost:5000`).
+3. Call the IDP proxy; this server logs and verifies the injected JWT.
