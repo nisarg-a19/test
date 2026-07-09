@@ -110,11 +110,16 @@ app.all('*', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Mock external system listening on http://localhost:${PORT}`);
-  console.log(`Verifying header: ${USER_TOKEN_HEADER}`);
-  console.log(`JWKS URI: ${JWKS_URI}`);
-  console.log(`Expected audience: ${EXPECTED_AUDIENCE || '(any)'}`);
-  console.log(`Expected issuer: ${EXPECTED_ISSUER || '(any)'}`);
-  console.log(`Allowed email: ${ALLOWED_EMAIL || '(any)'}`);
-});
+// Only listen if not running in Vercel (serverless)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Mock external system listening on http://localhost:${PORT}`);
+    console.log(`Verifying header: ${USER_TOKEN_HEADER}`);
+    console.log(`JWKS URI: ${JWKS_URI}`);
+    console.log(`Expected audience: ${EXPECTED_AUDIENCE || '(any)'}`);
+    console.log(`Expected issuer: ${EXPECTED_ISSUER || '(any)'}`);
+    console.log(`Allowed email: ${ALLOWED_EMAIL || '(any)'}`);
+  });
+}
+
+module.exports = app;

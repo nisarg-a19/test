@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "env": {
+    "HARNESS_ACCOUNT_ID": "GCOCLlOsR9-ysFlbwaF_Yw",
+    "HARNESS_BASE_URL": "https://munklinde96.pr2.harness.io",
+    "EXPECTED_AUDIENCE": "harness-idp",
+    "ALLOWED_EMAIL": "admin@harness.io"
+  }
+}
