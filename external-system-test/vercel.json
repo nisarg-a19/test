@@ -1,5 +1,17 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "server.js"
+    }
+  ],
   "env": {
     "HARNESS_ACCOUNT_ID": "GCOCLlOsR9-ysFlbwaF_Yw",
     "HARNESS_BASE_URL": "https://munklinde96.pr2.harness.io",
